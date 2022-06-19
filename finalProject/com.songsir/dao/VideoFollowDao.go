@@ -2,6 +2,7 @@ package dao
 
 import (
 	"finalProject/com.songsir/common"
+	"fmt"
 	"time"
 )
 
@@ -26,6 +27,7 @@ func DeleteVideoFollow(videoId int, userId int) {
 func SelectFollowOne(videoId int, userId int) common.VideoFollow {
 	connect := getConnect()
 	var videoFollow common.VideoFollow
+	fmt.Printf("用户Id%s", userId)
 	connect.Table("video_follow").Where("video_id=?", videoId).Where("user_id=?", userId).Find(&videoFollow)
 	return videoFollow
 }

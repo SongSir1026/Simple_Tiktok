@@ -16,8 +16,9 @@ import (
 //用户注册
 func Register(username string, password string) dto.LoginResponse {
 	//防止Sql注入
+	//const SQL_JUDGE = `(?:')|(?:--)|(/\\*(?:.|[\\n\\r])*?\\*/)|(\b(select|update|and|or|delete|insert|trancate|char|chr|into|substr|ascii|declare|exec|count|master|into|drop|execute)\b)`
 	m1, err1 := regexp.MatchString(constant.SQL_JUDGE, username)
-	fmt.Println(m1)
+
 	m2, err2 := regexp.MatchString(constant.SQL_JUDGE, password)
 	if m1 || m2 {
 		return dto.LoginResponse{StatusMsg: "无效账号或者密码", StatusCode: -1}
@@ -33,22 +34,24 @@ func Register(username string, password string) dto.LoginResponse {
 		return dto.LoginResponse{StatusMsg: "无效密码", StatusCode: -1}
 	}
 
-	fmt.Println(username)
-	fmt.Println(password)
-
 	userId := time.Now().Unix()
-	var result = dao.Register(username, password, userId)
+	pw := utils.MD5(password)
+	var result = dao.Register(username, pw, userId)
 	token := utils.RandString(32)
 	if result <= 0 {
 		return dto.LoginResponse{StatusMsg: "注册失败", StatusCode: -1}
 	}
+	userJson, err := json.Marshal(common.User{UserId: int(userId), Username: username, Password: pw})
+	if err != nil {
+		fmt.Println(err)
+	}
+	utils.Set(constant.USER_FLAG+token, userJson)
+	utils.Expire(constant.USER_FLAG+token, 30)
 	return dto.LoginResponse{StatusMsg: "注册成功", StatusCode: 0, UserId: int(userId), Token: token}
 }
 
 //登录接口
 func Login(username string, password string) dto.LoginResponse {
-	fmt.Println(username)
-
 	//防止Sql注入
 	m1, err1 := regexp.MatchString(constant.SQL_JUDGE, username)
 	m2, err2 := regexp.MatchString(constant.SQL_JUDGE, password)
@@ -67,9 +70,10 @@ func Login(username string, password string) dto.LoginResponse {
 	}
 
 	user := dao.Login(username)
+	pw := utils.MD5(password)
 	if user.Username != username {
 		return dto.LoginResponse{StatusCode: -1, StatusMsg: "用户不存在"}
-	} else if password != user.Password {
+	} else if pw != user.Password {
 		return dto.LoginResponse{StatusCode: -1, StatusMsg: "密码不正确"}
 	}
 
@@ -78,7 +82,6 @@ func Login(username string, password string) dto.LoginResponse {
 	if conn == nil {
 		fmt.Println("获取redis连接失败")
 	}
-
 	//将token存入用户信息存入redis中
 	token := utils.RandString(32)
 	userJson, err := json.Marshal(user)
@@ -86,6 +89,7 @@ func Login(username string, password string) dto.LoginResponse {
 		fmt.Println(err)
 	}
 	conn.Do("set", constant.USER_FLAG+token, userJson)
+	utils.Expire(constant.USER_FLAG+token, 30)
 	defer conn.Close()
 	return dto.LoginResponse{StatusCode: 0, StatusMsg: "登录成功", UserId: user.UserId, Token: token}
 }
@@ -109,7 +113,6 @@ func GetUserInfo(token string, userId int) dto.UserResponse {
 	}
 
 	defer conn.Close()
-	fmt.Printf("%+v", user)
 	return dto.UserResponse{StatusCode: 0, StatusMsg: "操作成功", User: user}
 
 }

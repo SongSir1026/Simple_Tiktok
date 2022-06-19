@@ -18,28 +18,28 @@ func SelectPublishList(userId int) []common.Video {
 }
 
 //获取视频流
-func SelectVideo() []common.Video {
+func SelectVideo(id int) []common.Video {
+
 	connect := getConnect()
 	var videolist []common.Video
-	connect.Find(&videolist)
+	connect.Order("video_id desc").Find(&videolist)
 	conn := utils.GetRedisConnection()
 	//redis中set判断是否存在
 
 	var i = 0
 	for i = 0; i < len(videolist); i++ {
-
 		user := GetInfos(videolist[i].AuthorId)
 		videolist[i].User = user
-
 		result := 1
-		result, err := redis.Int(conn.Do("SISMEMBER", constant.VIDEO_FLAG+string(videolist[i].VideoId), user.UserId))
-		fmt.Println(result)
+		result, err := redis.Int(conn.Do("SISMEMBER", constant.VIDEO_FLAG+string(videolist[i].VideoId), id))
 		//不存在，点赞操作
+		var one common.VideoFollow
 		if err != nil {
 			fmt.Println(err)
+			one = SelectFollowOne(videolist[i].VideoId, id)
 		}
-		one := SelectFollowOne(videolist[i].VideoId, user.UserId)
 
+		one = SelectFollowOne(videolist[i].VideoId, id)
 		if result == 0 && one.VideoId > 0 {
 			videolist[i].IsFavorite = true
 		}
@@ -51,7 +51,7 @@ func SelectVideo() []common.Video {
 //上传视频
 func InsertVideo(title string, playUrl string, userId int) {
 
-	unix := time.Now().Unix()
+	unix := time.Now().UnixMilli()
 	var coverUrl = playUrl + "?x-oss-process=video/snapshot,t_500,f_jpg,w_600,h_800,m_fast"
 	var video = common.Video{VideoId: int(unix), Title: title, AuthorId: userId, PlayUrl: playUrl, CoverUrl: coverUrl}
 

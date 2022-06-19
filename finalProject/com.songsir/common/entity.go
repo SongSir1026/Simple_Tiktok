@@ -1,7 +1,8 @@
 package common
 
 type User struct {
-	UserId        int    `json:"user_id"`
+	UserId        int    `json:"id"`
+	UserId2       int    `json:"user_id" gorm:"-"`
 	Username      string `json:"name";gorm:"column:username"`
 	Password      string `json:"password";gorm:"column:password"`
 	FollowCount   int    `json:"follow_count";gorm:"column:follow_count"`
@@ -21,7 +22,7 @@ type Video struct {
 }
 
 type VideoFollow struct {
-	Id      int `json:"id";gorm:"column:id"`
+	Id      int `json:"id"`
 	VideoId int `json:"video_id"`
 	UserId  int `json:"user_id"`
 }

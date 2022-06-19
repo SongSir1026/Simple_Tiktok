@@ -11,6 +11,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 
 		result := service.Register(username, password)
 		//result := service.Register(loginForm.Username, loginForm.Password)
-		c.JSON(http.StatusOK, gin.H{"msg": result})
+		c.JSON(http.StatusOK, result)
 	})
 
 	//登录接口
@@ -73,6 +74,14 @@ func main() {
 	router.GET("/douyin/feed", func(c *gin.Context) {
 		latestTime := c.Query("latest_time")
 		token := c.Query("token")
+
+		action, err := strconv.Atoi(latestTime)
+		fmt.Println(action)
+		micro := time.Now().UnixMilli()
+		fmt.Println(micro)
+		if err != nil {
+			fmt.Println(err)
+		}
 		result := service.GetFeedStream(latestTime, token)
 
 		c.JSON(http.StatusOK, result)
@@ -128,6 +137,9 @@ func main() {
 		result := service.GetCommentList(token, videoId)
 		c.JSON(http.StatusOK, result)
 	})
+
+	//http.ListenAndServe("localhost:8080", nil)
+	// 忽略其他代码
 
 	router.Run(":8080")
 }

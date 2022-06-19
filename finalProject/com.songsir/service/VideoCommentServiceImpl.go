@@ -3,6 +3,7 @@ package service
 import (
 	"finalProject/com.songsir/common"
 	"finalProject/com.songsir/common/constant"
+	"finalProject/com.songsir/common/utils"
 	"finalProject/com.songsir/dao"
 	"finalProject/com.songsir/dto"
 	"fmt"
@@ -41,15 +42,12 @@ func CommentAction(token string, video string, action string, commenttext string
 		dao.ActionNum(constant.COMMENT_FLAG, -1, video)
 		return dto.CommentInfoResponse{StatusCode: 0, StatusMsg: "删除成功"}
 	}
-
 	dao.AddComment(videoId, commenttext)
-
 	var commentList []common.VideoComment
 	commentList = dao.ShowComment(videoId)
 	dao.ActionNum(constant.COMMENT_FLAG, 1, video)
-
+	utils.SetByUser("setnx", constant.VIDEO_UPDATE_KEY, constant.VIDEO_UPDATE_VALUE)
 	return dto.CommentInfoResponse{StatusCode: 0, StatusMsg: "请求成功", Comment: commentList}
-
 }
 
 func GetCommentList(token string, video string) dto.CommentListResponse {

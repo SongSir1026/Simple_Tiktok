@@ -55,5 +55,6 @@ func GetInfos(userId int) common.User {
 	connect := getConnect()
 	var user common.User
 	connect.Where("user_id=?", userId).Find(&user)
+	user.UserId2 = user.UserId
 	return user
 }

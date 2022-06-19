@@ -45,7 +45,35 @@ func GetFeedStream(latestTime string, token string) dto.PublishListResponse {
 	}
 
 	var videos []common.Video
-	videos = dao.SelectVideo()
+	str := utils.Get(constant.USER_FLAG + token)
+	var u common.User
+	json.Unmarshal([]byte(str), &u)
+	//	videos = dao.SelectVideo(u.UserId)
+	//加锁
+	result, err := redis.Int(utils.SetByUser("setnx", constant.VIDEO_UPDATE_KEY, constant.VIDEO_UPDATE_VALUE))
+
+	if err != nil {
+		fmt.Println(err)
+	}
+	//不存在更新,直接读取Redis
+	if result == 1 {
+		str := utils.Get(constant.VIDEO_LIST)
+		json.Unmarshal([]byte(str), &videos)
+		fmt.Println("Redis缓存生效中")
+	} else {
+		//查询数据库
+		videos = dao.SelectVideo(u.UserId)
+		utils.Delete(constant.VIDEO_LIST)
+		marshal, err := json.Marshal(videos)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println("数据库生效中")
+		utils.Set(constant.VIDEO_LIST, marshal)
+		utils.Expire(constant.VIDEO_LIST, 10) //10min后过期
+
+	}
+	utils.Delete(constant.VIDEO_UPDATE_KEY)
 	//fmt.Println(videos)
 	return dto.PublishListResponse{StatusCode: 0, StatusMsg: "请求成功", VideoList: videos}
 }
@@ -61,26 +89,20 @@ func UploadVideo(title string, file *multipart.FileHeader, token string) dto.Upl
 	if m1 {
 		return dto.UploadResponse{StatusMsg: "无效账号或者密码", StatusCode: -1}
 	}
-	
 	fileHandler, err := file.Open()
 	if err != nil {
 		return dto.UploadResponse{StatusCode: -1, StatusMsg: "文件打开错误"}
 	}
 	defer fileHandler.Close()
-
 	fileByte, err := ioutil.ReadAll(fileHandler)
-
 	if err != nil {
 		return dto.UploadResponse{StatusCode: -1, StatusMsg: "文件上传失败"}
 	}
-
 	conn := utils.GetRedisConnection()
-
 	str, err := redis.String(conn.Do("get", constant.USER_FLAG+token))
 	if err != nil {
 		fmt.Println(err)
 	}
-
 	var user common.User
 	json.Unmarshal([]byte(str), &user)
 
@@ -92,6 +114,11 @@ func UploadVideo(title string, file *multipart.FileHeader, token string) dto.Upl
 
 	dao.InsertVideo(title, url, user.UserId)
 
+	_, err = utils.SetByUser("setnx", constant.VIDEO_UPDATE_KEY, constant.VIDEO_UPDATE_VALUE)
+	utils.Expire(constant.VIDEO_UPDATE_KEY, 10)
+	if err != nil {
+		fmt.Println(err)
+	}
 	return dto.UploadResponse{StatusCode: 0, StatusMsg: "文件上传成功"}
 
 }

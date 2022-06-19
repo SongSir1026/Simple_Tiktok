@@ -13,7 +13,6 @@ import (
 )
 
 func VideoFavoriteAction(token string, videoId string, actionType string) dto.UploadResponse {
-
 	video, err := strconv.Atoi(videoId)
 	if err != nil {
 		fmt.Println(err)
@@ -25,22 +24,18 @@ func VideoFavoriteAction(token string, videoId string, actionType string) dto.Up
 	if video < 0 || action < 0 || action > 2 || len(token) == 0 {
 		return dto.UploadResponse{StatusCode: -1, StatusMsg: "无效参数"}
 	}
-
 	//redis连接
 	conn := utils.GetRedisConnection()
 	defer conn.Close()
-
 	//获取用户
 	var user common.User
 	jsonstr, err := redis.String(conn.Do("get", constant.USER_FLAG+token))
 	if err != nil {
 		fmt.Println(err)
 	}
-
 	json.Unmarshal([]byte(jsonstr), &user)
 	//点赞
 	if action == 1 {
-
 		//redis中set判断是否存在
 		result, err := redis.Int(conn.Do("SISMEMBER", constant.VIDEO_FLAG+string(videoId), user.UserId))
 		//不存在，点赞操作
@@ -59,9 +54,10 @@ func VideoFavoriteAction(token string, videoId string, actionType string) dto.Up
 		dao.DeleteVideoFollow(video, user.UserId)
 		dao.ActionNum("favorite", -1, videoId)
 	}
+	//加锁
+	utils.SetByUser("setnx", constant.VIDEO_UPDATE_KEY, constant.VIDEO_UPDATE_VALUE)
 
 	return dto.UploadResponse{StatusCode: 0, StatusMsg: "操作成功"}
-
 }
 
 func VideoFavoriteActionList(token string, user string) dto.PublishListResponse {
